@@ -110,7 +110,7 @@ async def start_bot():
 
         async def login():
             try:
-                await page.goto(LOGIN_URL, wait_until="networkidle", timeout=60000)
+                await page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
 
                 await page.evaluate(f"""() => {{
                     const myUser = "{MY_USER}";
@@ -158,9 +158,13 @@ async def start_bot():
 
         while True:
             try:
-                await page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=3000)
-                await page.wait_for_timeout(500)
+                await page.goto(
+    TARGET_URL,
+    wait_until="commit",
+    timeout=30000
+)
 
+await page.wait_for_timeout(1500)
                 if "login" in page.url:
                     await login()
                     continue
