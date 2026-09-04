@@ -47,36 +47,87 @@ START_TIME = time.time()
 def update_firebase(num, msg, date_str, cli_source):
 
     try:
-        # Unique Firebase ID
-        unique_id = f"{num}_{int(time.time() * 1000)}"
+        clean_num = num.strip().lstrip("+")
+        plus_num = f"+{clean_num}"
 
-        url = f"{FB_URL}/sms_logs/{unique_id}.json"
+        # একই নাম্বার + একই OTP আগে Firebase-এ আছে কিনা চেক
+        check_url = f"{FB_URL}/sms_logs.json"
 
-        payload = {
-            "number": num,
+        check_res = requests.get(
+            check_url,
+            timeout=10
+        )
+
+        if check_res.status_code == 200:
+            existing_data = check_res.json() or {}
+
+            for key, data in existing_data.items():
+
+                if not isinstance(data, dict):
+                    continue
+
+                old_num = str(data.get("number", "")).strip().lstrip("+")
+                old_msg = str(data.get("message", "")).strip()
+
+                # একই নাম্বার + একই OTP
+                if old_num == clean_num and old_msg == msg.strip():
+                    print(f"♻️ Duplicate skipped: {clean_num} | {msg}")
+                    return
+
+        # ==========================================
+        # নতুন SMS → ২টি Firebase entry
+        # ==========================================
+
+        timestamp = int(time.time() * 1000)
+
+        # 1️⃣ Without +
+        unique_id_1 = f"{clean_num}_{timestamp}"
+
+        payload_1 = {
+            "number": clean_num,
             "message": msg,
             "time": date_str,
             "service": cli_source,
             "paid": False
         }
 
-        res = requests.put(
-            url,
-            json=payload,
+        url_1 = f"{FB_URL}/sms_logs/{unique_id_1}.json"
+
+        res1 = requests.put(
+            url_1,
+            json=payload_1,
             timeout=10
         )
 
-        if res.status_code in (200, 201):
-            print(f"🔥 Firebase saved: {num}")
+        # 2️⃣ With +
+        unique_id_2 = f"{plus_num}_{timestamp}"
+
+        payload_2 = {
+            "number": plus_num,
+            "message": msg,
+            "time": date_str,
+            "service": cli_source,
+            "paid": False
+        }
+
+        url_2 = f"{FB_URL}/sms_logs/{unique_id_2}.json"
+
+        res2 = requests.put(
+            url_2,
+            json=payload_2,
+            timeout=10
+        )
+
+        if res1.status_code in (200, 201) and res2.status_code in (200, 201):
+            print(f"🔥 Firebase saved 2x: {clean_num}")
         else:
             print(
-                f"⚠️ Firebase HTTP {res.status_code}: "
-                f"{res.text[:200]}"
+                f"⚠️ Firebase Error: "
+                f"{res1.status_code} / {res2.status_code}"
             )
 
     except Exception as e:
         print("❌ Firebase Error:", repr(e))
-
 
 # =========================================================
 # OTP EXTRACT
