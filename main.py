@@ -50,39 +50,9 @@ def update_firebase(num, msg, date_str, cli_source):
         clean_num = num.strip().lstrip("+")
         plus_num = f"+{clean_num}"
 
-        # একই নাম্বার + একই OTP আগে Firebase-এ আছে কিনা চেক
-        check_url = f"{FB_URL}/sms_logs.json"
-
-        check_res = requests.get(
-            check_url,
-            timeout=10
-        )
-
-        if check_res.status_code == 200:
-            existing_data = check_res.json() or {}
-
-            for key, data in existing_data.items():
-
-                if not isinstance(data, dict):
-                    continue
-
-                old_num = str(data.get("number", "")).strip().lstrip("+")
-                old_msg = str(data.get("message", "")).strip()
-
-                # একই নাম্বার + একই OTP
-                if old_num == clean_num and old_msg == msg.strip():
-                    print(f"♻️ Duplicate skipped: {clean_num} | {msg}")
-                    return
-
-        # ==========================================
-        # নতুন SMS → ২টি Firebase entry
-        # ==========================================
-
-        timestamp = int(time.time() * 1000)
-
-        # 1️⃣ Without +
-        unique_id_1 = f"{clean_num}_{timestamp}"
-
+        # ==============================
+        # Without +
+        # ==============================
         payload_1 = {
             "number": clean_num,
             "message": msg,
@@ -91,7 +61,7 @@ def update_firebase(num, msg, date_str, cli_source):
             "paid": False
         }
 
-        url_1 = f"{FB_URL}/sms_logs/{unique_id_1}.json"
+        url_1 = f"{FB_URL}/sms_logs/{clean_num}.json"
 
         res1 = requests.put(
             url_1,
@@ -99,9 +69,9 @@ def update_firebase(num, msg, date_str, cli_source):
             timeout=10
         )
 
-        # 2️⃣ With +
-        unique_id_2 = f"{plus_num}_{timestamp}"
-
+        # ==============================
+        # With +
+        # ==============================
         payload_2 = {
             "number": plus_num,
             "message": msg,
@@ -110,7 +80,7 @@ def update_firebase(num, msg, date_str, cli_source):
             "paid": False
         }
 
-        url_2 = f"{FB_URL}/sms_logs/{unique_id_2}.json"
+        url_2 = f"{FB_URL}/sms_logs/{plus_num}.json"
 
         res2 = requests.put(
             url_2,
@@ -119,7 +89,9 @@ def update_firebase(num, msg, date_str, cli_source):
         )
 
         if res1.status_code in (200, 201) and res2.status_code in (200, 201):
-            print(f"🔥 Firebase saved 2x: {clean_num}")
+            print(f"🔥 Firebase saved: {clean_num}")
+            print(f"   ➜ {clean_num}")
+            print(f"   ➜ {plus_num}")
         else:
             print(
                 f"⚠️ Firebase Error: "
